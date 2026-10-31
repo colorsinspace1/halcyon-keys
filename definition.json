@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "id": "hkeys",
+  "name": "Halcyon Keys",
+  "press": "page",
+  "parameters": [
+    {
+      "id": "root",
+      "label": "Root",
+      "default": 0.0417,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "C",
+          "Db",
+          "D",
+          "Eb",
+          "E",
+          "F",
+          "Gb",
+          "G",
+          "Ab",
+          "A",
+          "Bb",
+          "B"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "scale",
+      "label": "Scale",
+      "default": 0.0625,
+      "mapping": {
+        "kind": "enum",
+        "labels": [
+          "minor",
+          "dorian",
+          "harm min",
+          "phrygian",
+          "lydian",
+          "major",
+          "maj pent",
+          "min pent"
+        ]
+      },
+      "display": "enum"
+    },
+    {
+      "id": "warmth",
+      "label": "Warmth",
+      "default": 0.4,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "swell",
+      "label": "Swell",
+      "default": 0.3,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "drift",
+      "label": "Drift",
+      "control": 0,
+      "default": 0.3,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "air",
+      "label": "Air",
+      "control": 1,
+      "default": 0.2,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "progress",
+      "label": "Progress",
+      "control": 2,
+      "default": 0,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    },
+    {
+      "id": "age",
+      "label": "Age",
+      "control": 3,
+      "default": 0.3,
+      "mapping": {
+        "kind": "linear",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "display": "percent"
+    }
+  ],
+  "presets": {},
+  "resources": {
+    "voiceBytes": 1252,
+    "voiceAlignment": 4,
+    "voiceCapacity": 16,
+    "sharedBytes": 4,
+    "outputPeakQ31": 1288490189,
+    "display": {
+      "stateBytes": 144,
+      "stateAlignment": 4,
+      "paths": 0,
+      "points": 0,
+      "nodes": 102,
+      "texts": 16,
+      "palette": 12
+    }
+  }
+}
