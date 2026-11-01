@@ -349,19 +349,13 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
                 played[i] = r > 0x3fffffffu ? 0x3fffffffu : r;
             }
         }
-        hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 1 ? controls : ringing, played);
-        // A ringing note's level falls smoothly across the block.
-        const i32 from = v.level[n];
+        // The note's level (falling while it rings out or gives way) and its
+        // gain, handed to Halcyon to fold into its own level ramp.
         if (v.state[n] == 2) v.level[n] = opxy::q31::multiply(v.level[n], ring_out[seconds]);
         else if (v.state[n] == 3) v.level[n] = opxy::q31::multiply(v.level[n], 0x33333333);   // -8 dB a block
-        // The level and the voice's gain as one ramp: one product a sample.
-        const i32 start_gain = opxy::q31::multiply(from, v.gain[n]), end_gain = opxy::q31::multiply(v.level[n], v.gain[n]);
-        const i32 slope = (end_gain - start_gain) / static_cast<i32>(opxy::block_frames);
-        i32 level = start_gain;
-        for (unsigned i = 0; i < opxy::block_frames; ++i) {
-            output[i] += opxy::q31::multiply(tone[i], level) << 1;
-            level += slope;
-        }
+        hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 1 ? controls : ringing, played,
+                       opxy::q31::multiply(v.level[n], v.gain[n]));
+        for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] += tone[i] << 1;
         if (v.state[n] >= 2 && v.level[n] < silent) v.state[n] = 0;
     }
     for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = soften(output[i]);
