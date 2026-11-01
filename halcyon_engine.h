@@ -214,8 +214,10 @@ inline void render(Voice& v, Shared& shared, opxy::u32, opxy::Output output,
         main_gain = full - multiply(v.copy_level, 0x33333333);                         // 1.0 -> 0.6
         copy_gain = multiply(v.copy_level, 0x4ccccccd);                                // 0 -> 0.6
     }
-    const i32 copy_sine_gain = multiply(sine_gain, copy_gain), copy_saw_gain = multiply(saw_gain, copy_gain);
-    const i32 main_sine_gain = multiply(sine_gain, main_gain), main_saw_gain = multiply(saw_gain, main_gain);
+    // The copy is a sine only (Halcyon Keys' lighter ensemble): the saw stays
+    // single and keeps the copy's share of level, so the blend sounds the same.
+    const i32 copy_sine_gain = multiply(sine_gain, copy_gain);
+    const i32 main_sine_gain = multiply(sine_gain, main_gain), main_saw_gain = multiply(saw_gain, main_gain + copy_gain);
 
     // --- Air: the late octaves -----------------------------------------------
     const u32 wait = 103u + (swell * 827u >> 15);                                 // 0.15 .. 1.35 s
@@ -297,10 +299,6 @@ inline void render(Voice& v, Shared& shared, opxy::u32, opxy::Output output,
         if (saw_gain) {
             const i32 a = smooth_saw ? soft_saw(v.phase, increment, inverse) : static_cast<i32>(v.phase ^ 0x80000000u) >> 3;
             saws = multiply(a << 1, main_saw_gain);
-            if (doubled) {
-                const i32 b = smooth_saw ? soft_saw(v.copy_phase, copy_increment, inverse) : static_cast<i32>(v.copy_phase ^ 0x80000000u) >> 3;
-                saws += multiply(b << 1, copy_saw_gain);
-            }
             // State-variable low-pass, 12 dB per octave; both saws share it.
             v.low += multiply(v.band, f);
             const i32 high = saws - v.low - (multiply(v.band, damping) << 1);
