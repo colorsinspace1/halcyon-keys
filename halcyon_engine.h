@@ -279,14 +279,19 @@ inline void render(Voice& v, Shared& shared, opxy::u32, opxy::Output output,
     v.level = target;
 
     i32 hiss_value = 0;
+    // A held pitch (the usual case) needs its bent increment only once a block.
+    bool steady = true;
+    for (unsigned i = 1; i < opxy::block_frames; ++i) if (pitch[i] != pitch0) { steady = false; break; }
+    const u32 held_increment = pitch0 + static_cast<u32>(multiply(static_cast<i32>(pitch0), bend));
+    const u32 held_copy = doubled ? held_increment + static_cast<u32>(multiply(static_cast<i32>(held_increment), copy_detune)) : 0u;
     for (unsigned i = 0; i < opxy::block_frames; ++i) {
         const u32 p = pitch[i];
-        const u32 increment = p + static_cast<u32>(multiply(static_cast<i32>(p), bend));
+        const u32 increment = steady ? held_increment : p + static_cast<u32>(multiply(static_cast<i32>(p), bend));
         i32 tone = multiply(table_sine(v.phase) << 14, main_sine_gain);           // Q29
         i32 saws = 0;
         u32 copy_increment = 0;
         if (doubled) {
-            copy_increment = increment + static_cast<u32>(multiply(static_cast<i32>(increment), copy_detune));
+            copy_increment = steady ? held_copy : increment + static_cast<u32>(multiply(static_cast<i32>(increment), copy_detune));
             tone += multiply(table_sine(v.copy_phase) << 14, copy_sine_gain);
         }
         if (saw_gain) {

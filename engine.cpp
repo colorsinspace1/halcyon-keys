@@ -332,23 +332,34 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
     // A single note at 1.4 times Halcyon's own level, a chord's notes at 0.55
     // each (Halcyon is a quarter scale at most), so a chord, even one ringing
     // into the next, sits with the white keys; soften() catches rare peaks.
+    bool steady = true;
+    for (unsigned i = 1; i < opxy::block_frames; ++i) if (pitch[i] != pitch[0]) { steady = false; break; }
     for (u32 n = 0; n < slots; ++n) {
         if (!v.state[n]) continue;
         // At most a quarter of the sample rate: above `cap` the product would pass it.
         const u32 cap = v.ratio[n] <= 65536u ? 0xffffffffu : (0x3fffffffu / v.ratio[n]) << 16;
-        for (unsigned i = 0; i < opxy::block_frames; ++i) {
-            const u32 r = pitch[i] >= cap ? 0x3fffffffu : mul16(pitch[i], v.ratio[n]);
-            played[i] = r > 0x3fffffffu ? 0x3fffffffu : r;
+        if (steady) {
+            // The usual case, a held pitch: one product for the whole block.
+            const u32 r = pitch[0] >= cap ? 0x3fffffffu : mul16(pitch[0], v.ratio[n]);
+            const u32 q = r > 0x3fffffffu ? 0x3fffffffu : r;
+            for (unsigned i = 0; i < opxy::block_frames; ++i) played[i] = q;
+        } else {
+            for (unsigned i = 0; i < opxy::block_frames; ++i) {
+                const u32 r = pitch[i] >= cap ? 0x3fffffffu : mul16(pitch[i], v.ratio[n]);
+                played[i] = r > 0x3fffffffu ? 0x3fffffffu : r;
+            }
         }
         hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 1 ? controls : ringing, played);
         // A ringing note's level falls smoothly across the block.
         const i32 from = v.level[n];
         if (v.state[n] == 2) v.level[n] = opxy::q31::multiply(v.level[n], ring_out[seconds]);
         else if (v.state[n] == 3) v.level[n] = opxy::q31::multiply(v.level[n], 0x33333333);   // -8 dB a block
-        const i32 slope = (v.level[n] - from) / static_cast<i32>(opxy::block_frames);
-        i32 level = from;
+        // The level and the voice's gain as one ramp: one product a sample.
+        const i32 start_gain = opxy::q31::multiply(from, v.gain[n]), end_gain = opxy::q31::multiply(v.level[n], v.gain[n]);
+        const i32 slope = (end_gain - start_gain) / static_cast<i32>(opxy::block_frames);
+        i32 level = start_gain;
         for (unsigned i = 0; i < opxy::block_frames; ++i) {
-            output[i] += opxy::q31::multiply(opxy::q31::multiply(tone[i], level), v.gain[n]) << 1;
+            output[i] += opxy::q31::multiply(tone[i], level) << 1;
             level += slope;
         }
         if (v.state[n] >= 2 && v.level[n] < silent) v.state[n] = 0;
