@@ -50,9 +50,10 @@ const i32 colour[scale_count][3] = {
     {2, 3, 4},   // minor pentatonic
 };
 const i32 ending[scale_count][2] = {{6, 3}, {3, 6}, {4, 3}, {1, 6}, {1, 4}, {4, 3}, {4, 3}, {4, 3}};
-// A chord's notes ring out when it lets go, 60 dB down over half the chord's
-// length (at least 2 s), per block, Q31, by seconds 0..30.
-const i32 ring_out[31] = {2140319550, 2136746468, 2136746468, 2136746468, 2136746468, 2138889601, 2140319550, 2141341527, 2142108331, 2142704923, 2143182317, 2143572991, 2143898607, 2144174166, 2144410389, 2144615136, 2144794305, 2144952409, 2145092955, 2145218714, 2145331904, 2145434319, 2145527428, 2145612444, 2145690379, 2145762081, 2145828269, 2145889557, 2145946468, 2145999456, 2146048913};
+// A chord's notes ring out when it lets go, fading slowly over a whole chord's
+// length (50 dB down; at least 2 s) while the next chord swells in, per block,
+// Q31, by seconds 0..30.
+const i32 ring_out[31] = {2140319550, 2138532981, 2138532981, 2141512384, 2143003641, 2143898894, 2144495938, 2144922499, 2145242475, 2145491379, 2145690523, 2145853472, 2145989273, 2146104188, 2146202691, 2146288065, 2146362769, 2146428687, 2146487282, 2146539711, 2146586898, 2146629592, 2146668405, 2146703844, 2146736330, 2146766218, 2146793807, 2146819353, 2146843074, 2146865160, 2146885773};
 const i32 silent = 0x0044ce6c;   // -50 dB: a ringing note is let go below this
 // The last stage: peaks above 0.45 are rounded off softly towards a ceiling
 // of 0.6, never clipped; ordinary playing stays below the knee, untouched.
@@ -247,7 +248,7 @@ inline void begin(Voice& v, Shared& shared, u32 slot, u32 ratio) {
     v.state[slot] = 1;
 }
 // Notes waiting for a slot take free ones. While none is free, the faintest
-// notes ringing out give way with a fast fade (about 10 ms) to make room, so a
+// notes ringing out give way with a quick fade (about 25 ms) to make room, so a
 // note is never cut off: the new one starts a few milliseconds later instead.
 inline void place(Voice& v, Shared& shared) {
     u32 waiting = 0;
@@ -355,7 +356,7 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
         // The note's level (falling while it rings out or gives way) and its
         // gain, handed to Halcyon to fold into its own level ramp.
         if (v.state[n] == 2) v.level[n] = opxy::q31::multiply(v.level[n], ring_out[seconds]);
-        else if (v.state[n] == 3) v.level[n] = opxy::q31::multiply(v.level[n], 0x33333333);   // -8 dB a block
+        else if (v.state[n] == 3) v.level[n] = opxy::q31::multiply(v.level[n], 0x5a9df7ab);   // -3 dB a block: about 25 ms, no click
         hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 1 ? controls : ringing, played,
                        opxy::q31::multiply(v.level[n], v.gain[n]));
         for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] += tone[i] << 1;

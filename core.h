@@ -5,9 +5,9 @@
 namespace hkeys {
 // A white key plays one Halcyon voice; a black key plays a chord of four, and
 // when its song moves on, the notes that change ring out while the new ones
-// swell in: up to six voices at once (four sounding, two ringing out; more
-// give way, the faintest first).
-const unsigned chord_notes = 4, slots = 6;
+// swell in: up to eight voices at once (four sounding, four ringing out, so a
+// whole chord can fade while the next comes in; more give way, the faintest first).
+const unsigned chord_notes = 4, slots = 8;
 // One key: its Halcyon voices, each one's note (a Q16 pitch ratio from the key
 // pressed) and level, and which of them the current chord's notes are.
 struct Voice {
