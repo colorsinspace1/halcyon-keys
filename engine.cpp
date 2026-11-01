@@ -328,8 +328,8 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
     const i32 aged_hiss = hiss + opxy::q31::multiply(opxy::q31::multiply(p[7], p[7]), 0x50000000);
     const i32 controls[8] = {p[2], p[3], p[4], p[5], aged_hiss, 0, ensemble, p[7]};
     // A note ringing out drops Halcyon's costly layers (Air's octaves, Hiss,
-    // Ensemble's double, Age) as it fades, for about half the work.
-    const i32 ringing[8] = {p[2], p[3], p[4], 0, 0, 0, 0, 0};
+    // Age) as it fades, for less work; Ensemble stays so the level holds steady.
+    const i32 ringing[8] = {p[2], p[3], p[4], 0, 0, 0, ensemble, 0};   // Ensemble kept: dropping it made the level jump
     i32 tone[opxy::block_frames];
     u32 played[opxy::block_frames];
     for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = 0;
