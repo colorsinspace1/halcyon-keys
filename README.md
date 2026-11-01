@@ -34,7 +34,7 @@ envelopes, filter and LFO shape every note as usual.
 | **Drift** | wandering tape speed and a breathing filter |
 | **Air** | late copies an octave up, then down |
 | **Progress** | how long each chord of a black key's song lasts, from 30 s down to 4 s (off: the first chord only) |
-| **Age** | tape saturation, a rounded top and a little wobble |
+| **Age** | tape saturation, a rounded top and a little wobble; turned up, more tape hiss that breaks up into particles |
 
 The screen is Halcyon's fog lake: each note drops a ripple on the water.
 

@@ -322,7 +322,10 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
     place(v, shared);
     if (v.blocks < 0xfffffff0u) ++v.blocks;
     // Halcyon's controls: Warmth, Swell, Drift, Air, Hiss, Chord, Ensemble, Age.
-    const i32 controls[8] = {p[2], p[3], p[4], p[5], hiss, 0, ensemble, p[7]};
+    // Age also brings the tape's hiss up, on a curve: faint at first, then it
+    // breaks up into Halcyon's particles towards full (about 63% of Hiss at 100).
+    const i32 aged_hiss = hiss + multiply(multiply(p[7], p[7]), 0x50000000);
+    const i32 controls[8] = {p[2], p[3], p[4], p[5], aged_hiss, 0, ensemble, p[7]};
     // A note ringing out drops Halcyon's costly layers (Air's octaves, Hiss,
     // Ensemble's double, Age) as it fades, for about half the work.
     const i32 ringing[8] = {p[2], p[3], p[4], 0, 0, 0, 0, 0};
