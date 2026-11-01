@@ -224,28 +224,51 @@ inline void initialize(Voice& v, Shared& shared, u32 owner) {
 }
 
 inline void start(Voice& v, Shared&, u32) {
+    // A new note on a voice still sounding: what it was playing gives way with
+    // a fast fade instead of stopping dead, which clicked.
     v.count = 0;
-    for (u32 n = 0; n < slots; ++n) v.state[n] = 0;
+    for (u32 n = 0; n < slots; ++n) if (v.state[n]) v.state[n] = 3;
+    for (u32 n = 0; n < chord_notes; ++n) v.current[n] = slots;
 }
 
 inline void destroy(Voice&, Shared&, u32) {}
 
 namespace {
-// A slot for a new note: a free one, or else the faintest one ringing out.
+// A free slot for a new note (slots: none).
 inline u32 free_slot(Voice& v) {
-    u32 pick = slots;
-    i32 faintest = 0x7fffffff;
-    for (u32 n = 0; n < slots; ++n) {
-        if (!v.state[n]) return n;
-        if (v.state[n] == 2 && v.level[n] < faintest) { faintest = v.level[n]; pick = n; }
-    }
-    return pick;
+    for (u32 n = 0; n < slots; ++n) if (!v.state[n]) return n;
+    return slots;
 }
 inline void begin(Voice& v, Shared& shared, u32 slot, u32 ratio) {
     hktone::start(v.tone[slot], shared.halcyon, v.owner);   // swells in with Halcyon's Swell
     v.ratio[slot] = ratio;
     v.level[slot] = 0x7fffffff;
+    v.gain[slot] = v.count > 1 ? 0x23333333 : 0x5999999a;   // a chord's note 0.275, a single note 0.7, doubled below
     v.state[slot] = 1;
+}
+// Notes waiting for a slot take free ones. While none is free, the faintest
+// notes ringing out give way with a fast fade (about 10 ms) to make room, so a
+// note is never cut off: the new one starts a few milliseconds later instead.
+inline void place(Voice& v, Shared& shared) {
+    u32 waiting = 0;
+    for (u32 n = 0; n < v.count; ++n) {
+        if (v.current[n] != slots) continue;
+        const u32 slot = free_slot(v);
+        if (slot == slots) { ++waiting; continue; }
+        v.current[n] = slot;
+        begin(v, shared, slot, v.want[n]);
+    }
+    u32 going = 0;
+    for (u32 n = 0; n < slots; ++n) if (v.state[n] == 3) ++going;
+    while (going < waiting) {
+        u32 pick = slots;
+        i32 faintest = 0x7fffffff;
+        for (u32 n = 0; n < slots; ++n)
+            if (v.state[n] == 2 && v.level[n] < faintest) { faintest = v.level[n]; pick = n; }
+        if (pick == slots) break;
+        v.state[pick] = 3;
+        ++going;
+    }
 }
 }
 
@@ -266,8 +289,8 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
                 i32 k = notes[0] - v.key;
                 if (k < -64) k = -64;
                 if (k > 64) k = 64;
-                v.current[0] = 0;
-                begin(v, shared, 0, semitones[k + 64]);
+                v.want[0] = semitones[k + 64];
+                v.current[0] = slots;
             }
         } else {
             // A song plays like hands on keys: each chord is held for three
@@ -282,22 +305,21 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
                 // The next chord: four new notes swell in (Halcyon's Swell).
                 chord_on(v.song[chord % v.song_length], root, scale, notes, static_cast<u32>(song));
                 for (u32 n = 0; n < chord_notes; ++n) {
-                    if (!first && v.state[v.current[n]] == 1) v.state[v.current[n]] = 2;
+                    if (v.current[n] < slots && v.state[v.current[n]] == 1) v.state[v.current[n]] = 2;
                     i32 k = notes[n] - v.key;
                     if (k < -64) k = -64;
                     if (k > 64) k = 64;
-                    const u32 slot = free_slot(v);
-                    if (slot == slots) continue;
-                    v.current[n] = slot;
-                    begin(v, shared, slot, semitones[k + 64]);
+                    v.want[n] = semitones[k + 64];
+                    v.current[n] = slots;
                 }
                 v.chord_at = chord + 1u;
             } else if (!held) {
                 for (u32 n = 0; n < chord_notes; ++n)
-                    if (v.state[v.current[n]] == 1) v.state[v.current[n]] = 2;   // let go: rings out
+                    if (v.current[n] < slots && v.state[v.current[n]] == 1) v.state[v.current[n]] = 2;   // let go: rings out
             }
         }
     }
+    place(v, shared);
     if (v.blocks < 0xfffffff0u) ++v.blocks;
     // Halcyon's controls: Warmth, Swell, Drift, Air, Hiss, Chord, Ensemble, Age.
     const i32 controls[8] = {p[2], p[3], p[4], p[5], hiss, 0, ensemble, p[7]};
@@ -310,7 +332,6 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
     // A single note at 1.4 times Halcyon's own level, a chord's notes at 0.55
     // each (Halcyon is a quarter scale at most), so a chord, even one ringing
     // into the next, sits with the white keys; soften() catches rare peaks.
-    const i32 gain = v.count > 1 ? 0x23333333 : 0x5999999a;              // 0.275 and 0.7, doubled below
     for (u32 n = 0; n < slots; ++n) {
         if (!v.state[n]) continue;
         // At most a quarter of the sample rate: above `cap` the product would pass it.
@@ -319,17 +340,18 @@ inline void render(Voice& v, Shared& shared, u32, opxy::Output output, opxy::Par
             const u32 r = pitch[i] >= cap ? 0x3fffffffu : mul16(pitch[i], v.ratio[n]);
             played[i] = r > 0x3fffffffu ? 0x3fffffffu : r;
         }
-        hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 2 ? ringing : controls, played);
+        hktone::render(v.tone[n], shared.halcyon, v.owner, tone, v.state[n] == 1 ? controls : ringing, played);
         // A ringing note's level falls smoothly across the block.
         const i32 from = v.level[n];
         if (v.state[n] == 2) v.level[n] = opxy::q31::multiply(v.level[n], ring_out[seconds]);
+        else if (v.state[n] == 3) v.level[n] = opxy::q31::multiply(v.level[n], 0x33333333);   // -8 dB a block
         const i32 slope = (v.level[n] - from) / static_cast<i32>(opxy::block_frames);
         i32 level = from;
         for (unsigned i = 0; i < opxy::block_frames; ++i) {
-            output[i] += opxy::q31::multiply(opxy::q31::multiply(tone[i], level), gain) << 1;
+            output[i] += opxy::q31::multiply(opxy::q31::multiply(tone[i], level), v.gain[n]) << 1;
             level += slope;
         }
-        if (v.state[n] == 2 && v.level[n] < silent) v.state[n] = 0;
+        if (v.state[n] >= 2 && v.level[n] < silent) v.state[n] = 0;
     }
     for (unsigned i = 0; i < opxy::block_frames; ++i) output[i] = soften(output[i]);
 }

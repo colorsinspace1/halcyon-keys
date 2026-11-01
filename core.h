@@ -14,8 +14,10 @@ struct Voice {
     hktone::Voice tone[slots];
     opxy::u32 ratio[slots];
     opxy::i32 level[slots];          // Q31
-    opxy::u32 state[slots];          // 0 free, 1 sounding in the current chord, 2 ringing out
-    opxy::u32 current[chord_notes];  // the slots of the current chord's notes
+    opxy::u32 state[slots];          // 0 free, 1 sounding in the current chord, 2 ringing out, 3 giving way (a fast fade)
+    opxy::i32 gain[slots];           // each voice's level in the mix, fixed when it starts
+    opxy::u32 current[chord_notes];  // the slots of the current chord's notes (slots: waiting for one)
+    opxy::u32 want[chord_notes];     // a waiting note's pitch ratio
     opxy::i32 key;        // the key pressed (MIDI note)
     opxy::u32 blocks;     // blocks since the key went down: a song's clock
     opxy::i32 song[8];    // a black key's song (degrees), made for one Root and Scale
